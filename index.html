@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aviator Admin Panel</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #0d0f14; color: #fff; padding: 20px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #E53935; padding-bottom: 10px; margin-bottom: 20px; }
+        .header h1 { color: #E53935; font-style: italic; }
+        .logout-btn { background: #E53935; color: #fff; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; display: none; }
+
+        /* Login Screen */
+        #loginScreen { max-width: 400px; margin: 50px auto; background: #15181e; padding: 30px; border-radius: 10px; border: 1px solid #333; }
+        #loginScreen h2 { text-align: center; margin-bottom: 20px; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; color: #aaa; font-size: 14px;}
+        .input-group input { width: 100%; padding: 12px; background: #0d0f14; border: 1px solid #333; border-radius: 5px; color: #fff; }
+        .btn { width: 100%; padding: 12px; background: #E53935; color: #fff; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        .btn:hover { background: #B71C1C; }
+
+        /* Dashboard */
+        #dashboard { display: none; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .card { background: #15181e; border-radius: 10px; padding: 20px; border: 1px solid #333; }
+        .card h3 { color: #E53935; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        
+        .data-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #1f232b; }
+        .data-row:last-child { border-bottom: none; }
+        
+        .status-pending { color: #FF9800; font-weight: bold; }
+        .status-approved { color: #4CAF50; font-weight: bold; }
+        .status-rejected { color: #E53935; font-weight: bold; }
+
+        .action-btn { padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-left: 5px; }
+        .btn-approve { background: #4CAF50; color: #fff; }
+        .btn-reject { background: #E53935; color: #fff; }
+        .btn-delete { background: #E53935; color: #fff; padding: 2px 6px; font-size: 12px; }
+
+        #adminEmailDisplay { color: #4CAF50; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Aviator Admin Panel</h1>
+        <button class="logout-btn" id="logoutBtn" onclick="logoutAdmin()">Logout</button>
+    </div>
+
+    <!-- Login Screen -->
+    <div id="loginScreen">
+        <h2>Admin Login</h2>
+        <div class="input-group">
+            <label>Email</label>
+            <input type="email" id="adminEmail" placeholder="Admin Email">
+        </div>
+        <div class="input-group">
+            <label>Password</label>
+            <input type="password" id="adminPassword" placeholder="Password">
+        </div>
+        <button class="btn" onclick="loginAdmin()">Login</button>
+        <p id="loginError" style="color:#E53935; text-align:center; margin-top:10px;"></p>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard">
+        <p style="margin-bottom: 20px;">Welcome, <span id="adminEmailDisplay"></span></p>
+        
+        <div class="grid">
+            <!-- Transaction Requests -->
+            <div class="card">
+                <h3>Deposit / Withdraw Requests</h3>
+                <div id="transactionList">
+                    <p style="color:#aaa;">Loading...</p>
+                </div>
+            </div>
+
+            <!-- Bot Management -->
+            <div class="card">
+                <h3>Manage Bots</h3>
+                <div class="input-group">
+                    <label>Bot Name</label>
+                    <input type="text" id="botName" placeholder="e.g. Zain_99">
+                </div>
+                <div class="input-group">
+                    <label>Bet Amount</label>
+                    <input type="number" id="botBet" placeholder="e.g. 500">
+                </div>
+                <div class="input-group">
+                    <label>Cashout Target (x)</label>
+                    <input type="number" id="botTarget" placeholder="e.g. 2.5" step="0.1">
+                </div>
+                <button class="btn" onclick="addBot()">Add Bot</button>
+                <div id="botList" style="margin-top: 20px;">
+                    <p style="color:#aaa;">Loading...</p>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <div class="card">
+                <h3>App Settings</h3>
+                <div class="input-group">
+                    <label>Deposit Number</label>
+                    <input type="text" id="depositNumber" placeholder="0302-XXXXXXX">
+                </div>
+                <div class="input-group">
+                    <label>Deposit Account Name</label>
+                    <input type="text" id="depositName" placeholder="Account Title">
+                </div>
+                <button class="btn" onclick="updateSettings()">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- SUPABASE SETUP (Aap ki Nayi Keys) ---
+        const SUPABASE_URL = "https://tcjpssiufhsqsckqsaad.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjanBzc2l1ZmhzcXNja3FzYWFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMxMDg5NDMsImV4cCI6MjEwODY4NDk0M30.JZJ5BsP5EtnLBy3xAVDJyQz_OeJdNFmGj9v7ye7n2Yg";
+        
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let currentUser = null;
+
+        // --- LOGIN ---
+        async function loginAdmin() {
+            let email = document.getElementById('adminEmail').value;
+            let pass = document.getElementById('adminPassword').value;
+
+            if(!email || !pass) { document.getElementById('loginError').innerText = "Enter Email and Password"; return; }
+
+            const { data, error } = await _supabase.auth.signInWithPassword({ email: email, password: pass });
+            
+            if (error) {
+                document.getElementById('loginError').innerText = error.message;
+            } else {
+                // Check if user is admin in profiles table
+                const { data: profile, error: profError } = await _supabase.from('profiles').select('role').eq('id', data.user.id).single();
+                
+                if (profError || profile.role !== 'admin') {
+                    document.getElementById('loginError').innerText = "Access Denied. You are not an Admin.";
+                    await _supabase.auth.signOut();
+                    return;
+                }
+
+                currentUser = data.user;
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                document.getElementById('logoutBtn').style.display = 'block';
+                document.getElementById('adminEmailDisplay').innerText = email;
+                
+                loadData();
+            }
+        }
+
+        async function logoutAdmin() {
+            await _supabase.auth.signOut();
+            location.reload();
+        }
+
+        // --- LOAD DATA ---
+        async function loadData() {
+            loadTransactions();
+            loadBots();
+            loadSettings();
+        }
+
+        // 1. Transactions
+        async function loadTransactions() {
+            const { data, error } = await _supabase.from('transactions').select('*').order('created_at', { ascending: false });
+            let list = document.getElementById('transactionList');
+            list.innerHTML = '';
+
+            if(error || !data || data.length === 0) {
+                list.innerHTML = '<p style="color:#aaa;">No requests found.</p>';
+                return;
+            }
+
+            data.forEach(t => {
+                let statusClass = t.status === 'pending' ? 'status-pending' : (t.status === 'approved' ? 'status-approved' : 'status-rejected');
+                let actions = '';
+                
+                if(t.status === 'pending') {
+                    actions = `
+                        <button class="action-btn btn-approve" onclick="updateTxStatus(${t.id}, 'approved', '${t.type}', ${t.amount}, '${t.user_id}')">Approve</button>
+                        <button class="action-btn btn-reject" onclick="updateTxStatus(${t.id}, 'rejected', '${t.type}', ${t.amount}, '${t.user_id}')">Reject</button>
+                    `;
+                }
+
+                list.innerHTML += `
+                    <div class="data-row">
+                        <div>
+                            <b>${t.type.toUpperCase()}</b> - ${t.amount} PKR<br>
+                            <span style="font-size:12px; color:#aaa;">User ID: ${t.user_id.substring(0,8)}... | ${t.details ? JSON.stringify(t.details) : 'No Details'}</span><br>
+                            <span class="${statusClass}">${t.status.toUpperCase()}</span>
+                        </div>
+                        <div>${actions}</div>
+                    </div>
+                `;
+            });
+        }
+
+        // 2. Update Transaction Status
+        async function updateTxStatus(txId, status, type, amount, userId) {
+            await _supabase.from('transactions').update({ status: status }).eq('id', txId);
+
+            if(status === 'approved') {
+                const { data: profile } = await _supabase.from('profiles').select('balance').eq('id', userId).single();
+                if(profile) {
+                    let newBalance = profile.balance;
+                    if(type === 'deposit') newBalance += amount;
+                    if(type === 'withdraw') newBalance -= amount;
+                    await _supabase.from('profiles').update({ balance: newBalance }).eq('id', userId);
+                }
+            } else if(status === 'rejected' && type === 'withdraw') {
+                const { data: profile } = await _supabase.from('profiles').select('balance').eq('id', userId).single();
+                if(profile) {
+                    let newBalance = profile.balance + amount;
+                    await _supabase.from('profiles').update({ balance: newBalance }).eq('id', userId);
+                }
+            }
+            loadTransactions();
+        }
+
+        // 3. Bots Management
+        async function loadBots() {
+            const { data, error } = await _supabase.from('bots').select('*');
+            let list = document.getElementById('botList');
+            list.innerHTML = '';
+            if(error || !data) return;
+
+            data.forEach(bot => {
+                list.innerHTML += `
+                    <div class="data-row">
+                        <div><b>${bot.name}</b> | Bet: ${bot.bet_amount} | Target: ${bot.cashout_target}x</div>
+                        <button class="btn-delete" onclick="deleteBot(${bot.id})">X</button>
+                    </div>
+                `;
+            });
+        }
+
+        async function addBot() {
+            let name = document.getElementById('botName').value;
+            let bet = parseFloat(document.getElementById('botBet').value);
+            let target = parseFloat(document.getElementById('botTarget').value);
+
+            if(!name || !bet || !target) { alert("Fill all bot fields"); return; }
+
+            await _supabase.from('bots').insert({ name: name, bet_amount: bet, cashout_target: target });
+            document.getElementById('botName').value = '';
+            document.getElementById('botBet').value = '';
+            document.getElementById('botTarget').value = '';
+            loadBots();
+        }
+
+        async function deleteBot(id) {
+            if(confirm("Delete this bot?")) {
+                await _supabase.from('bots').delete().eq('id', id);
+                loadBots();
+            }
+        }
+
+        // 4. App Settings
+        async function loadSettings() {
+            const { data, error } = await _supabase.from('app_settings').select('*');
+            if(error || !data) return;
+            data.forEach(setting => {
+                if(setting.key === 'deposit_number') document.getElementById('depositNumber').value = setting.value;
+                if(setting.key === 'deposit_name') document.getElementById('depositName').value = setting.value;
+            });
+        }
+
+        async function updateSettings() {
+            let num = document.getElementById('depositNumber').value;
+            let name = document.getElementById('depositName').value;
+
+            await _supabase.from('app_settings').update({ value: num }).eq('key', 'deposit_number');
+            await _supabase.from('app_settings').update({ value: name }).eq('key', 'deposit_name');
+
+            alert("Settings Updated!");
+        }
+
+    </script>
+</body>
+</html>
