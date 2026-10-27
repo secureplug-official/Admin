@@ -24,7 +24,18 @@
 
         /* Dashboard */
         #dashboard { display: none; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        
+        /* Stats Grid */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .stat-card { background: #15181e; border-radius: 10px; padding: 20px; border: 1px solid #333; text-align: center; }
+        .stat-card h3 { color: #aaa; font-size: 14px; margin-bottom: 10px; }
+        .stat-card .value { font-size: 24px; font-weight: bold; color: #fff; }
+        .stat-card .value.green { color: #4CAF50; }
+        .stat-card .value.red { color: #E53935; }
+        .stat-card .value.orange { color: #FF9800; }
+
+        /* Sections */
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
         .card { background: #15181e; border-radius: 10px; padding: 20px; border: 1px solid #333; }
         .card h3 { color: #E53935; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
         
@@ -69,11 +80,43 @@
     <div id="dashboard">
         <p style="margin-bottom: 20px;">Welcome, <span id="adminEmailDisplay"></span></p>
         
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Pending Deposits</h3>
+                <div class="value orange" id="statPendingDeposits">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Pending Withdrawals</h3>
+                <div class="value orange" id="statPendingWithdrawals">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Money In</h3>
+                <div class="value green" id="statTotalIn">0 PKR</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Money Out</h3>
+                <div class="value red" id="statTotalOut">0 PKR</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Profit (House)</h3>
+                <div class="value green" id="statProfit">0 PKR</div>
+            </div>
+        </div>
+
         <div class="grid">
             <!-- Transaction Requests -->
             <div class="card">
                 <h3>Deposit / Withdraw Requests</h3>
                 <div id="transactionList">
+                    <p style="color:#aaa;">Loading...</p>
+                </div>
+            </div>
+
+            <!-- Live Bets / Online Players -->
+            <div class="card">
+                <h3>Live Bets / Players Online</h3>
+                <div id="liveBetsList">
                     <p style="color:#aaa;">Loading...</p>
                 </div>
             </div>
@@ -116,7 +159,7 @@
     </div>
 
     <script>
-        // --- SUPABASE SETUP (Aap ki Nayi Keys) ---
+        // --- SUPABASE SETUP ---
         const SUPABASE_URL = "https://tcjpssiufhsqsckqsaad.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjanBzc2l1ZmhzcXNja3FzYWFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMxMDg5NDMsImV4cCI6MjEwODY4NDk0M30.JZJ5BsP5EtnLBy3xAVDJyQz_OeJdNFmGj9v7ye7n2Yg";
         
@@ -167,7 +210,7 @@
             loadSettings();
         }
 
-        // 1. Transactions
+        // 1. Transactions & Stats
         async function loadTransactions() {
             const { data, error } = await _supabase.from('transactions').select('*').order('created_at', { ascending: false });
             let list = document.getElementById('transactionList');
@@ -178,15 +221,26 @@
                 return;
             }
 
+            let pendingDep = 0, pendingWith = 0;
+            let totalIn = 0, totalOut = 0, totalProfit = 0;
+
             data.forEach(t => {
                 let statusClass = t.status === 'pending' ? 'status-pending' : (t.status === 'approved' ? 'status-approved' : 'status-rejected');
                 let actions = '';
                 
                 if(t.status === 'pending') {
+                    if(t.type === 'deposit') pendingDep++;
+                    if(t.type === 'withdraw') pendingWith++;
                     actions = `
                         <button class="action-btn btn-approve" onclick="updateTxStatus(${t.id}, 'approved', '${t.type}', ${t.amount}, '${t.user_id}')">Approve</button>
                         <button class="action-btn btn-reject" onclick="updateTxStatus(${t.id}, 'rejected', '${t.type}', ${t.amount}, '${t.user_id}')">Reject</button>
                     `;
+                }
+
+                // Calculate Stats
+                if(t.status === 'approved') {
+                    if(t.type === 'deposit') totalIn += t.amount;
+                    if(t.type === 'withdraw') totalOut += t.amount;
                 }
 
                 list.innerHTML += `
@@ -200,6 +254,12 @@
                     </div>
                 `;
             });
+
+            document.getElementById('statPendingDeposits').innerText = pendingDep;
+            document.getElementById('statPendingWithdrawals').innerText = pendingWith;
+            document.getElementById('statTotalIn').innerText = totalIn + " PKR";
+            document.getElementById('statTotalOut').innerText = totalOut + " PKR";
+            document.getElementById('statProfit').innerText = (totalIn - totalOut) + " PKR";
         }
 
         // 2. Update Transaction Status
