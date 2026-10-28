@@ -3,343 +3,641 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aviator Admin Panel</title>
+    <title>PKR9T9 - Admin Panel</title>
+    <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background-color: #0d0f14; color: #fff; padding: 20px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #121212; color: #fff; display: flex; height: 100vh; overflow: hidden; }
+
+        /* Sidebar */
+        .sidebar { width: 250px; background: #1a1a1a; border-right: 1px solid #333; display: flex; flex-direction: column; }
+        .logo { padding: 20px; font-size: 24px; font-weight: 900; color: #67d133; text-align: center; border-bottom: 1px solid #333; font-style: italic; }
+        .menu { list-style: none; padding: 10px 0; flex: 1; overflow-y: auto; }
+        .menu li { padding: 15px 20px; cursor: pointer; display: flex; align-items: center; gap: 10px; color: #aaa; transition: 0.2s; border-left: 3px solid transparent; }
+        .menu li:hover, .menu li.active { background: #222; color: #67d133; border-left-color: #67d133; }
+        .logout-btn { padding: 15px; background: #2a1111; color: #ff4747; text-align: center; cursor: pointer; font-weight: bold; border-top: 1px solid #333; }
+        .logout-btn:hover { background: #3a1515; }
+
+        /* Main Content */
+        .main-content { flex: 1; padding: 20px; overflow-y: auto; background: #121212; }
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Stats Cards */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; border-top: 4px solid #67d133; }
+        .stat-card h3 { font-size: 14px; color: #aaa; margin-bottom: 10px; }
+        .stat-card .value { font-size: 28px; font-weight: bold; color: #fff; }
+        .stat-card.pending { border-top-color: #f5b800; }
+        .stat-card.profit { border-top-color: #0099ff; }
+
+        /* Tables */
+        .table-container { background: #1e1e1e; border-radius: 8px; overflow: hidden; border: 1px solid #333; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 12px 15px; border-bottom: 1px solid #333; font-size: 14px; }
+        th { background: #1a1a1a; color: #aaa; font-weight: bold; }
+        tr:hover { background: #252525; }
         
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #E53935; padding-bottom: 10px; margin-bottom: 20px; }
-        .header h1 { color: #E53935; font-style: italic; }
-        .logout-btn { background: #E53935; color: #fff; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; display: none; }
+        /* Badges & Buttons */
+        .status { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
+        .status.pending { background: rgba(245, 184, 0, 0.2); color: #f5b800; }
+        .status.approved { background: rgba(103, 209, 51, 0.2); color: #67d133; }
+        .status.rejected { background: rgba(255, 71, 71, 0.2); color: #ff4747; }
+
+        .btn { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; transition: 0.2s; }
+        .btn.approve { background: #67d133; color: #000; }
+        .btn.approve:hover { background: #52b020; }
+        .btn.reject { background: #ff4747; color: #fff; }
+        .btn.reject:hover { background: #cc3333; }
+        .btn.primary { background: #0099ff; color: #fff; padding: 10px 20px; font-size: 14px; }
+
+        /* Forms */
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #aaa; font-size: 14px; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; background: #121212; border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 14px; }
+        .form-group input:focus { border-color: #67d133; outline: none; }
 
         /* Login Screen */
-        #loginScreen { max-width: 400px; margin: 50px auto; background: #15181e; padding: 30px; border-radius: 10px; border: 1px solid #333; }
-        #loginScreen h2 { text-align: center; margin-bottom: 20px; }
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; margin-bottom: 5px; color: #aaa; font-size: 14px;}
-        .input-group input { width: 100%; padding: 12px; background: #0d0f14; border: 1px solid #333; border-radius: 5px; color: #fff; }
-        .btn { width: 100%; padding: 12px; background: #E53935; color: #fff; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; }
-        .btn:hover { background: #B71C1C; }
+        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #121212; display: flex; justify-content: center; align-items: center; z-index: 9999; }
+        .login-box { background: #1e1e1e; padding: 30px; border-radius: 10px; width: 350px; border: 1px solid #333; }
+        .login-box h2 { text-align: center; color: #67d133; margin-bottom: 20px; }
 
-        /* Dashboard */
-        #dashboard { display: none; }
-        
-        /* Stats Grid */
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
-        .stat-card { background: #15181e; border-radius: 10px; padding: 20px; border: 1px solid #333; text-align: center; }
-        .stat-card h3 { color: #aaa; font-size: 14px; margin-bottom: 10px; }
-        .stat-card .value { font-size: 24px; font-weight: bold; color: #fff; }
-        .stat-card .value.green { color: #4CAF50; }
-        .stat-card .value.red { color: #E53935; }
-        .stat-card .value.orange { color: #FF9800; }
+        /* Loading */
+        #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 10000; }
+        .spinner { width: 40px; height: 40px; border: 4px solid rgba(103, 209, 51, 0.3); border-top-color: #67d133; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
 
-        /* Sections */
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
-        .card { background: #15181e; border-radius: 10px; padding: 20px; border: 1px solid #333; }
-        .card h3 { color: #E53935; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        
-        .data-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #1f232b; }
-        .data-row:last-child { border-bottom: none; }
-        
-        .status-pending { color: #FF9800; font-weight: bold; }
-        .status-approved { color: #4CAF50; font-weight: bold; }
-        .status-rejected { color: #E53935; font-weight: bold; }
-
-        .action-btn { padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-left: 5px; }
-        .btn-approve { background: #4CAF50; color: #fff; }
-        .btn-reject { background: #E53935; color: #fff; }
-        .btn-delete { background: #E53935; color: #fff; padding: 2px 6px; font-size: 12px; }
-
-        #adminEmailDisplay { color: #4CAF50; font-weight: bold; }
+        /* Bots Grid */
+        .bot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
+        .bot-card { background: #1e1e1e; padding: 15px; border-radius: 8px; border: 1px solid #333; display: flex; flex-direction: column; gap: 10px; }
+        .bot-card h4 { color: #67d133; font-size: 16px; }
+        .bot-card p { font-size: 13px; color: #aaa; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <h1>Aviator Admin Panel</h1>
-        <button class="logout-btn" id="logoutBtn" onclick="logoutAdmin()">Logout</button>
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen">
+        <div class="login-box">
+            <h2>Admin Login</h2>
+            <div class="form-group">
+                <label>Admin Email</label>
+                <input type="email" id="admin-email" placeholder="admin@pkr9t9.com">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="admin-password" placeholder="••••••••">
+            </div>
+            <button class="btn primary" style="width: 100%;" onclick="adminLogin()">LOGIN</button>
+            <div id="login-error" style="color: #ff4747; text-align: center; margin-top: 10px; font-size: 13px;"></div>
+        </div>
     </div>
 
-    <!-- Login Screen -->
-    <div id="loginScreen">
-        <h2>Admin Login</h2>
-        <div class="input-group">
-            <label>Email</label>
-            <input type="email" id="adminEmail" placeholder="Admin Email">
-        </div>
-        <div class="input-group">
-            <label>Password</label>
-            <input type="password" id="adminPassword" placeholder="Password">
-        </div>
-        <button class="btn" onclick="loginAdmin()">Login</button>
-        <p id="loginError" style="color:#E53935; text-align:center; margin-top:10px;"></p>
+    <!-- LOADING -->
+    <div id="loading"><div class="spinner"></div></div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="logo">PKR9T9 Admin</div>
+        <ul class="menu">
+            <li class="active" onclick="switchPage('dashboard', this)">📊 Dashboard</li>
+            <li onclick="switchPage('deposits', this)">💰 Pending Deposits</li>
+            <li onclick="switchPage('withdrawals', this)">💸 Pending Withdrawals</li>
+            <li onclick="switchPage('users', this)">👥 Manage Users</li>
+            <li onclick="switchPage('bots', this)">🤖 Manage Bots</li>
+            <li onclick="switchPage('settings', this)">⚙️ App Settings</li>
+        </ul>
+        <div class="logout-btn" onclick="adminLogout()">Logout</div>
     </div>
 
-    <!-- Dashboard -->
-    <div id="dashboard">
-        <p style="margin-bottom: 20px;">Welcome, <span id="adminEmailDisplay"></span></p>
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
         
-        <!-- Stats Cards -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <h3>Pending Deposits</h3>
-                <div class="value orange" id="statPendingDeposits">0</div>
+        <!-- DASHBOARD PAGE -->
+        <div id="page-dashboard" class="page active">
+            <h2 style="margin-bottom: 20px;">Overview</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Users</h3>
+                    <div class="value" id="stat-users">0</div>
+                </div>
+                <div class="stat-card pending">
+                    <h3>Pending Requests</h3>
+                    <div class="value" id="stat-pending">0</div>
+                </div>
+                <div class="stat-card profit">
+                    <h3>Total Deposits (PKR)</h3>
+                    <div class="value" id="stat-deposits">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Withdrawals (PKR)</h3>
+                    <div class="value" id="stat-withdraws">0</div>
+                </div>
             </div>
-            <div class="stat-card">
-                <h3>Pending Withdrawals</h3>
-                <div class="value orange" id="statPendingWithdrawals">0</div>
-            </div>
-            <div class="stat-card">
-                <h3>Total Money In</h3>
-                <div class="value green" id="statTotalIn">0 PKR</div>
-            </div>
-            <div class="stat-card">
-                <h3>Total Money Out</h3>
-                <div class="value red" id="statTotalOut">0 PKR</div>
-            </div>
-            <div class="stat-card">
-                <h3>Total Profit (House)</h3>
-                <div class="value green" id="statProfit">0 PKR</div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>User ID</th>
+                            <th>Type</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-tx-table">
+                        <tr><td colspan="5" style="text-align:center;">Loading...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
-        <div class="grid">
-            <!-- Transaction Requests -->
-            <div class="card">
-                <h3>Deposit / Withdraw Requests</h3>
-                <div id="transactionList">
-                    <p style="color:#aaa;">Loading...</p>
+        <!-- DEPOSITS PAGE -->
+        <div id="page-deposits" class="page">
+            <h2 style="margin-bottom: 20px;">Pending Deposits</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>User ID</th>
+                            <th>Amount</th>
+                            <th>Method</th>
+                            <th>TID / Details</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="deposits-table">
+                        <tr><td colspan="6" style="text-align:center;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- WITHDRAWALS PAGE -->
+        <div id="page-withdrawals" class="page">
+            <h2 style="margin-bottom: 20px;">Pending Withdrawals</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>User ID</th>
+                            <th>Amount</th>
+                            <th>Method</th>
+                            <th>Account Details</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="withdrawals-table">
+                        <tr><td colspan="6" style="text-align:center;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- USERS PAGE -->
+        <div id="page-users" class="page">
+            <h2 style="margin-bottom: 20px;">Manage Users</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Username / Phone</th>
+                            <th>Balance</th>
+                            <th>Role</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table">
+                        <tr><td colspan="5" style="text-align:center;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- BOTS PAGE -->
+        <div id="page-bots" class="page">
+            <h2 style="margin-bottom: 20px;">Aviator Bots</h2>
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <!-- Add Bot Form -->
+                <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; width: 300px;">
+                    <h3 style="margin-bottom: 15px; color: #67d133;">Add New Bot</h3>
+                    <div class="form-group">
+                        <label>Bot Name</label>
+                        <input type="text" id="bot-name" placeholder="e.g. Ali_Khan">
+                    </div>
+                    <div class="form-group">
+                        <label>Bet Amount (PKR)</label>
+                        <input type="number" id="bot-bet" value="100">
+                    </div>
+                    <div class="form-group">
+                        <label>Cashout Target (x)</label>
+                        <input type="number" step="0.1" id="bot-target" value="2.0">
+                    </div>
+                    <button class="btn primary" style="width: 100%;" onclick="addBot()">Add Bot</button>
+                </div>
+
+                <!-- Bots List -->
+                <div style="flex: 1; min-width: 300px;">
+                    <div class="bot-grid" id="bots-grid">
+                        <!-- Bots will load here -->
+                    </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Live Bets / Online Players -->
-            <div class="card">
-                <h3>Live Bets / Players Online</h3>
-                <div id="liveBetsList">
-                    <p style="color:#aaa;">Loading...</p>
+        <!-- SETTINGS PAGE -->
+        <div id="page-settings" class="page">
+            <h2 style="margin-bottom: 20px;">App Settings</h2>
+            <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; max-width: 500px;">
+                <div class="form-group">
+                    <label>Deposit Account Number (Easypaisa/JazzCash)</label>
+                    <input type="text" id="setting-deposit-number" placeholder="03027904449">
                 </div>
-            </div>
-
-            <!-- Bot Management -->
-            <div class="card">
-                <h3>Manage Bots</h3>
-                <div class="input-group">
-                    <label>Bot Name</label>
-                    <input type="text" id="botName" placeholder="e.g. Zain_99">
-                </div>
-                <div class="input-group">
-                    <label>Bet Amount</label>
-                    <input type="number" id="botBet" placeholder="e.g. 500">
-                </div>
-                <div class="input-group">
-                    <label>Cashout Target (x)</label>
-                    <input type="number" id="botTarget" placeholder="e.g. 2.5" step="0.1">
-                </div>
-                <button class="btn" onclick="addBot()">Add Bot</button>
-                <div id="botList" style="margin-top: 20px;">
-                    <p style="color:#aaa;">Loading...</p>
-                </div>
-            </div>
-
-            <!-- Settings -->
-            <div class="card">
-                <h3>App Settings</h3>
-                <div class="input-group">
-                    <label>Deposit Number</label>
-                    <input type="text" id="depositNumber" placeholder="0302-XXXXXXX">
-                </div>
-                <div class="input-group">
+                <div class="form-group">
                     <label>Deposit Account Name</label>
-                    <input type="text" id="depositName" placeholder="Account Title">
+                    <input type="text" id="setting-deposit-name" placeholder="PKR9T9 Gaming">
                 </div>
-                <button class="btn" onclick="updateSettings()">Save Settings</button>
+                <div class="form-group">
+                    <label>WhatsApp Support Number</label>
+                    <input type="text" id="setting-whatsapp" placeholder="923027904449">
+                </div>
+                <div class="form-group">
+                    <label>Telegram Support Link</label>
+                    <input type="text" id="setting-telegram" placeholder="https://t.me/pkr9t9">
+                </div>
+                <button class="btn primary" onclick="saveSettings()">Save Settings</button>
             </div>
         </div>
+
     </div>
 
     <script>
         // --- SUPABASE SETUP ---
         const SUPABASE_URL = "https://tcjpssiufhsqsckqsaad.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjanBzc2l1ZmhzcXNja3FzYWFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMxMDg5NDMsImV4cCI6MjEwODY4NDk0M30.JZJ5BsP5EtnLBy3xAVDJyQz_OeJdNFmGj9v7ye7n2Yg";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjanBzc2l1ZmhzcXNja3FzYWFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMxMDg5NDMsImV4cCI6MjEwODY4NDk0M30.JZJ5BsP5EtnLBy3xAVDJyQz_OeJdNFmGj9v7ye7n2Yg";
         
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let currentAdmin = null;
 
-        let currentUser = null;
+        // UI Helpers
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'flex' : 'none';
+        }
 
-        // --- LOGIN ---
-        async function loginAdmin() {
-            let email = document.getElementById('adminEmail').value;
-            let pass = document.getElementById('adminPassword').value;
-
-            if(!email || !pass) { document.getElementById('loginError').innerText = "Enter Email and Password"; return; }
-
-            const { data, error } = await _supabase.auth.signInWithPassword({ email: email, password: pass });
+        function switchPage(pageId, elem) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('page-' + pageId).classList.add('active');
             
-            if (error) {
-                document.getElementById('loginError').innerText = error.message;
-            } else {
-                // Check if user is admin in profiles table
-                const { data: profile, error: profError } = await _supabase.from('profiles').select('role').eq('id', data.user.id).single();
+            if(elem) {
+                document.querySelectorAll('.menu li').forEach(l => l.classList.remove('active'));
+                elem.classList.add('active');
+            }
+
+            // Load data based on page
+            if(pageId === 'dashboard') loadDashboard();
+            if(pageId === 'deposits') loadPendingTransactions('deposit');
+            if(pageId === 'withdrawals') loadPendingTransactions('withdraw');
+            if(pageId === 'users') loadUsers();
+            if(pageId === 'bots') loadBots();
+            if(pageId === 'settings') loadSettings();
+        }
+
+        // --- AUTHENTICATION ---
+        async function adminLogin() {
+            const email = document.getElementById('admin-email').value;
+            const password = document.getElementById('admin-password').value;
+            
+            if(!email || !password) {
+                document.getElementById('login-error').innerText = "Please enter email and password";
+                return;
+            }
+
+            showLoading(true);
+            try {
+                const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
                 
-                if (profError || profile.role !== 'admin') {
-                    document.getElementById('loginError').innerText = "Access Denied. You are not an Admin.";
+                if (error) throw error;
+
+                // Check if user is admin in profiles table
+                const { data: profile, error: profileErr } = await _supabase
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', data.user.id)
+                    .single();
+
+                if (profileErr || profile.role !== 'admin') {
                     await _supabase.auth.signOut();
-                    return;
+                    throw new Error("Access Denied: You are not an admin.");
                 }
 
-                currentUser = data.user;
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('dashboard').style.display = 'block';
-                document.getElementById('logoutBtn').style.display = 'block';
-                document.getElementById('adminEmailDisplay').innerText = email;
-                
-                loadData();
+                currentAdmin = data.user;
+                document.getElementById('login-screen').style.display = 'none';
+                loadDashboard();
+
+            } catch (err) {
+                document.getElementById('login-error').innerText = err.message;
+            } finally {
+                showLoading(false);
             }
         }
 
-        async function logoutAdmin() {
+        async function adminLogout() {
             await _supabase.auth.signOut();
             location.reload();
         }
 
-        // --- LOAD DATA ---
-        async function loadData() {
-            loadTransactions();
-            loadBots();
-            loadSettings();
-        }
-
-        // 1. Transactions & Stats
-        async function loadTransactions() {
-            const { data, error } = await _supabase.from('transactions').select('*').order('created_at', { ascending: false });
-            let list = document.getElementById('transactionList');
-            list.innerHTML = '';
-
-            if(error || !data || data.length === 0) {
-                list.innerHTML = '<p style="color:#aaa;">No requests found.</p>';
-                return;
+        // Check if already logged in on load
+        window.onload = async () => {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (session) {
+                const { data: profile } = await _supabase.from('profiles').select('role').eq('id', session.user.id).single();
+                if (profile && profile.role === 'admin') {
+                    currentAdmin = session.user;
+                    document.getElementById('login-screen').style.display = 'none';
+                    loadDashboard();
+                }
             }
+        };
 
-            let pendingDep = 0, pendingWith = 0;
-            let totalIn = 0, totalOut = 0, totalProfit = 0;
-
-            data.forEach(t => {
-                let statusClass = t.status === 'pending' ? 'status-pending' : (t.status === 'approved' ? 'status-approved' : 'status-rejected');
-                let actions = '';
+        // --- DASHBOARD LOGIC ---
+        async function loadDashboard() {
+            showLoading(true);
+            try {
+                // Fetch counts and totals
+                const { data: txData } = await _supabase.from('transactions').select('*');
+                const { data: usersData } = await _supabase.from('profiles').select('id');
                 
-                if(t.status === 'pending') {
-                    if(t.type === 'deposit') pendingDep++;
-                    if(t.type === 'withdraw') pendingWith++;
-                    actions = `
-                        <button class="action-btn btn-approve" onclick="updateTxStatus(${t.id}, 'approved', '${t.type}', ${t.amount}, '${t.user_id}')">Approve</button>
-                        <button class="action-btn btn-reject" onclick="updateTxStatus(${t.id}, 'rejected', '${t.type}', ${t.amount}, '${t.user_id}')">Reject</button>
-                    `;
+                if(txData && usersData) {
+                    const pending = txData.filter(t => t.status === 'pending').length;
+                    const deposits = txData.filter(t => t.type === 'deposit' && t.status === 'approved').reduce((sum, t) => sum + Number(t.amount), 0);
+                    const withdraws = txData.filter(t => t.type === 'withdraw' && t.status === 'approved').reduce((sum, t) => sum + Number(t.amount), 0);
+                    
+                    document.getElementById('stat-users').innerText = usersData.length;
+                    document.getElementById('stat-pending').innerText = pending;
+                    document.getElementById('stat-deposits').innerText = deposits.toLocaleString();
+                    document.getElementById('stat-withdraws').innerText = withdraws.toLocaleString();
+
+                    // Recent transactions
+                    const recent = txData.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5);
+                    document.getElementById('recent-tx-table').innerHTML = recent.map(t => `
+                        <tr>
+                            <td>${new Date(t.created_at).toLocaleString()}</td>
+                            <td>${t.user_id.substring(0, 8)}...</td>
+                            <td style="text-transform: uppercase;">${t.type}</td>
+                            <td style="color: ${t.type === 'deposit' ? '#67d133' : '#f5b800'}; font-weight: bold;">₨ ${t.amount}</td>
+                            <td><span class="status ${t.status}">${t.status}</span></td>
+                        </tr>
+                    `).join('');
                 }
-
-                // Calculate Stats
-                if(t.status === 'approved') {
-                    if(t.type === 'deposit') totalIn += t.amount;
-                    if(t.type === 'withdraw') totalOut += t.amount;
-                }
-
-                list.innerHTML += `
-                    <div class="data-row">
-                        <div>
-                            <b>${t.type.toUpperCase()}</b> - ${t.amount} PKR<br>
-                            <span style="font-size:12px; color:#aaa;">User ID: ${t.user_id.substring(0,8)}... | ${t.details ? JSON.stringify(t.details) : 'No Details'}</span><br>
-                            <span class="${statusClass}">${t.status.toUpperCase()}</span>
-                        </div>
-                        <div>${actions}</div>
-                    </div>
-                `;
-            });
-
-            document.getElementById('statPendingDeposits').innerText = pendingDep;
-            document.getElementById('statPendingWithdrawals').innerText = pendingWith;
-            document.getElementById('statTotalIn').innerText = totalIn + " PKR";
-            document.getElementById('statTotalOut').innerText = totalOut + " PKR";
-            document.getElementById('statProfit').innerText = (totalIn - totalOut) + " PKR";
-        }
-
-        // 2. Update Transaction Status
-        async function updateTxStatus(txId, status, type, amount, userId) {
-            await _supabase.from('transactions').update({ status: status }).eq('id', txId);
-
-            if(status === 'approved') {
-                const { data: profile } = await _supabase.from('profiles').select('balance').eq('id', userId).single();
-                if(profile) {
-                    let newBalance = profile.balance;
-                    if(type === 'deposit') newBalance += amount;
-                    if(type === 'withdraw') newBalance -= amount;
-                    await _supabase.from('profiles').update({ balance: newBalance }).eq('id', userId);
-                }
-            } else if(status === 'rejected' && type === 'withdraw') {
-                const { data: profile } = await _supabase.from('profiles').select('balance').eq('id', userId).single();
-                if(profile) {
-                    let newBalance = profile.balance + amount;
-                    await _supabase.from('profiles').update({ balance: newBalance }).eq('id', userId);
-                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                showLoading(false);
             }
-            loadTransactions();
         }
 
-        // 3. Bots Management
-        async function loadBots() {
-            const { data, error } = await _supabase.from('bots').select('*');
-            let list = document.getElementById('botList');
-            list.innerHTML = '';
-            if(error || !data) return;
+        // --- TRANSACTIONS LOGIC ---
+        async function loadPendingTransactions(type) {
+            showLoading(true);
+            try {
+                const { data, error } = await _supabase
+                    .from('transactions')
+                    .select('*')
+                    .eq('status', 'pending')
+                    .eq('type', type)
+                    .order('created_at', { ascending: false });
 
-            data.forEach(bot => {
-                list.innerHTML += `
-                    <div class="data-row">
-                        <div><b>${bot.name}</b> | Bet: ${bot.bet_amount} | Target: ${bot.cashout_target}x</div>
-                        <button class="btn-delete" onclick="deleteBot(${bot.id})">X</button>
+                if (error) throw error;
+
+                const tbody = document.getElementById(type === 'deposit' ? 'deposits-table' : 'withdrawals-table');
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No pending ${type}s found.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = data.map(t => {
+                    let details = "";
+                    if (type === 'deposit') {
+                        details = `TID: ${t.details?.tid || 'N/A'}<br>Sender: ${t.details?.account || 'N/A'}`;
+                    } else {
+                        details = `Acc: ${t.details?.account || 'N/A'}<br>Name: ${t.details?.account_name || 'N/A'}`;
+                    }
+
+                    return `
+                    <tr>
+                        <td>${new Date(t.created_at).toLocaleString()}</td>
+                        <td>${t.user_id.substring(0, 8)}...</td>
+                        <td style="font-weight: bold; color: #fff;">₨ ${t.amount}</td>
+                        <td style="text-transform: uppercase;">${t.details?.method || 'N/A'}</td>
+                        <td style="font-size: 12px; color: #aaa;">${details}</td>
+                        <td>
+                            <button class="btn approve" onclick="resolveTx('${t.id}', true, '${t.user_id}', ${t.amount}, '${type}')">Approve</button>
+                            <button class="btn reject" onclick="resolveTx('${t.id}', false)">Reject</button>
+                        </td>
+                    </tr>
+                    `;
+                }).join('');
+
+            } catch (e) {
+                console.error(e);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function resolveTx(txId, isApprove, userId, amount, type) {
+            if (!confirm(`Are you sure you want to ${isApprove ? 'APPROVE' : 'REJECT'} this ${type}?`)) return;
+            
+            showLoading(true);
+            try {
+                const status = isApprove ? 'approved' : 'rejected';
+
+                // 1. Update Transaction Status
+                const { error: txErr } = await _supabase
+                    .from('transactions')
+                    .update({ status: status, resolved_by: currentAdmin.id })
+                    .eq('id', txId);
+
+                if (txErr) throw txErr;
+
+                // 2. If Approved, Update Balance (For Deposit, add money. For Withdraw, we already deducted or we deduct now)
+                if (isApprove && userId) {
+                    // Get current balance
+                    const { data: profile } = await _supabase.from('profiles').select('balance').eq('id', userId).single();
+                    let currentBalance = profile ? Number(profile.balance) : 0;
+
+                    let newBalance = currentBalance;
+                    if (type === 'deposit') newBalance += Number(amount);
+                    if (type === 'withdraw') newBalance -= Number(amount); // Deduct on approval
+
+                    await _supabase.from('profiles').update({ balance: newBalance }).eq('id', userId);
+                }
+
+                alert(`Transaction ${status} successfully!`);
+                // Reload current page
+                loadPendingTransactions(type);
+                loadDashboard();
+
+            } catch (e) {
+                alert("Error: " + e.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // --- USERS LOGIC ---
+        async function loadUsers() {
+            showLoading(true);
+            try {
+                const { data, error } = await _supabase.from('profiles').select('*').order('created_at', { ascending: false });
+                if (error) throw error;
+
+                document.getElementById('users-table').innerHTML = data.map(u => `
+                    <tr>
+                        <td>${u.id.substring(0, 8)}...</td>
+                        <td>${u.username || 'Unknown'}</td>
+                        <td style="font-weight: bold; color: #67d133;">₨ ${Number(u.balance).toFixed(2)}</td>
+                        <td style="text-transform: capitalize;">${u.role}</td>
+                        <td>
+                            <button class="btn primary" style="padding: 4px 8px; font-size: 11px;" onclick="adjustBalance('${u.id}')">Adjust Balance</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error(e);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function adjustBalance(userId) {
+            let amt = prompt("Enter amount to add (Use negative for deduct):");
+            if (!amt) return;
+            amt = Number(amt);
+            if (isNaN(amt)) return alert("Invalid amount");
+
+            showLoading(true);
+            try {
+                const { data: profile } = await _supabase.from('profiles').select('balance').eq('id', userId).single();
+                let newBalance = Number(profile.balance) + amt;
+                if (newBalance < 0) newBalance = 0;
+
+                await _supabase.from('profiles').update({ balance: newBalance }).eq('id', userId);
+                alert("Balance updated!");
+                loadUsers();
+            } catch (e) {
+                alert(e.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // --- BOTS LOGIC ---
+        async function loadBots() {
+            showLoading(true);
+            try {
+                const { data, error } = await _supabase.from('bots').select('*').order('created_at', { ascending: false });
+                if (error) throw error;
+
+                if (data.length === 0) {
+                    document.getElementById('bots-grid').innerHTML = '<p style="color:#aaa;">No bots found. Add one to see players in Aviator.</p>';
+                    return;
+                }
+
+                document.getElementById('bots-grid').innerHTML = data.map(b => `
+                    <div class="bot-card">
+                        <h4>👤 ${b.name}</h4>
+                        <p>Bet: <b>₨ ${b.bet_amount}</b></p>
+                        <p>Cashout at: <b>${b.cashout_target}x</b></p>
+                        <button class="btn reject" style="margin-top:10px;" onclick="deleteBot('${b.id}')">Delete Bot</button>
                     </div>
-                `;
-            });
+                `).join('');
+            } catch (e) {
+                console.error(e);
+            } finally {
+                showLoading(false);
+            }
         }
 
         async function addBot() {
-            let name = document.getElementById('botName').value;
-            let bet = parseFloat(document.getElementById('botBet').value);
-            let target = parseFloat(document.getElementById('botTarget').value);
+            const name = document.getElementById('bot-name').value;
+            const bet = document.getElementById('bot-bet').value;
+            const target = document.getElementById('bot-target').value;
 
-            if(!name || !bet || !target) { alert("Fill all bot fields"); return; }
+            if (!name || !bet || !target) return alert("Fill all fields");
 
-            await _supabase.from('bots').insert({ name: name, bet_amount: bet, cashout_target: target });
-            document.getElementById('botName').value = '';
-            document.getElementById('botBet').value = '';
-            document.getElementById('botTarget').value = '';
-            loadBots();
-        }
-
-        async function deleteBot(id) {
-            if(confirm("Delete this bot?")) {
-                await _supabase.from('bots').delete().eq('id', id);
+            showLoading(true);
+            try {
+                await _supabase.from('bots').insert({ name, bet_amount: bet, cashout_target: target });
+                document.getElementById('bot-name').value = '';
                 loadBots();
+            } catch (e) {
+                alert(e.message);
+            } finally {
+                showLoading(false);
             }
         }
 
-        // 4. App Settings
-        async function loadSettings() {
-            const { data, error } = await _supabase.from('app_settings').select('*');
-            if(error || !data) return;
-            data.forEach(setting => {
-                if(setting.key === 'deposit_number') document.getElementById('depositNumber').value = setting.value;
-                if(setting.key === 'deposit_name') document.getElementById('depositName').value = setting.value;
-            });
+        async function deleteBot(id) {
+            if(!confirm("Delete this bot?")) return;
+            showLoading(true);
+            try {
+                await _supabase.from('bots').delete().eq('id', id);
+                loadBots();
+            } catch (e) {
+                alert(e.message);
+            } finally {
+                showLoading(false);
+            }
         }
 
-        async function updateSettings() {
-            let num = document.getElementById('depositNumber').value;
-            let name = document.getElementById('depositName').value;
+        // --- SETTINGS LOGIC ---
+        async function loadSettings() {
+            showLoading(true);
+            try {
+                const { data, error } = await _supabase.from('app_settings').select('*');
+                if (error) throw error;
 
-            await _supabase.from('app_settings').update({ value: num }).eq('key', 'deposit_number');
-            await _supabase.from('app_settings').update({ value: name }).eq('key', 'deposit_name');
+                data.forEach(setting => {
+                    if (setting.key === 'deposit_number') document.getElementById('setting-deposit-number').value = setting.value;
+                    if (setting.key === 'deposit_name') document.getElementById('setting-deposit-name').value = setting.value;
+                    if (setting.key === 'support_whatsapp') document.getElementById('setting-whatsapp').value = setting.value;
+                    if (setting.key === 'support_telegram') document.getElementById('setting-telegram').value = setting.value;
+                });
+            } catch (e) {
+                console.error(e);
+            } finally {
+                showLoading(false);
+            }
+        }
 
-            alert("Settings Updated!");
+        async function saveSettings() {
+            const num = document.getElementById('setting-deposit-number').value;
+            const name = document.getElementById('setting-deposit-name').value;
+            const wa = document.getElementById('setting-whatsapp').value;
+            const tg = document.getElementById('setting-telegram').value;
+
+            showLoading(true);
+            try {
+                // Upsert settings
+                await _supabase.from('app_settings').upsert([
+                    { key: 'deposit_number', value: num },
+                    { key: 'deposit_name', value: name },
+                    { key: 'support_whatsapp', value: wa },
+                    { key: 'support_telegram', value: tg }
+                ]);
+                alert("Settings saved successfully!");
+            } catch (e) {
+                alert(e.message);
+            } finally {
+                showLoading(false);
+            }
         }
 
     </script>
